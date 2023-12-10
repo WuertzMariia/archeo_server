@@ -32,7 +32,7 @@ app.post('/upload', upload.single('file'), function (req, res, next) {
     // res.json({file: req.file});
     console.log(req.file)
     let videoMetaDataObj;
-    const videoMetadata = async () => await renderer.getVideoMetadata(req.file.path).then(r =>  {
+    const videoMetadata = async () => await renderer.getVideoMetadata(req.file.path).then(r => {
         videoMetaDataObj = r;
         res.json({videoMetaDataObj: videoMetaDataObj, file: req.file});
     });
@@ -55,7 +55,7 @@ app.post("/extract", cors(), (req, res, next) => {
     console.log(req.body.file)
     let arrayOffset = []
     for (let i = 1; i <= req.body.duration; i++) {
-        arrayOffset.push((i*1000)-500)
+        arrayOffset.push((i * 1000) - 500)
     }
 
     let getFrames = async () => {
@@ -71,57 +71,112 @@ app.post("/extract", cors(), (req, res, next) => {
         await ffmpeg(req.body.file)
             .outputOptions('-q:v 2') // set the quality of the output JPEGs to 2 (highest quality)
             .output(req.body.fileName + '/screenshot-%d.jpg') // use a pattern for the output file names
-            .on('end', function() {
+            .on('end', function () {
                 console.log('Finished processing');
-            })
-            .run();
-    }
 
-    getFrames().then(r => {
-        // arch.append(req.body.fileName, { name: 'req.body.fileName'});
-        const output = fs.createWriteStream(__dirname + "/" + req.body.fileName + 'zip.zip');
-        const archive = archiver('zip');
-        output.on('close', function () {
-            console.log(archive.pointer() + ' total bytes');
-            console.log('archiver has been finalized and the output file descriptor has closed.');
-        });
+                setTimeout(() => {
+                    console.log("Delayed for 1 second.");
+                    console.log("START selecting 1 frame per second")
+
+// The directory of the frames
+                    const inputDir = req.body.fileName;
+
+// The directory to save the selected frames
+                    const outputDir = './' + inputDir + '_key_frames';
+
+// Create the output directory if it doesn't exist
+                    if (!fs.existsSync(outputDir)) {
+                        fs.mkdirSync(outputDir);
+                    }
+
+// Read the directory of the frames
+                    fs.readdir(inputDir, (err, files) => {
+                        if (err) {
+                            console.error('Error reading directory:', err);
+                            return;
+                        }
+
+                        // Sort the files by their frame numbers
+                        files.sort((a, b) => {
+                            const frameNumberA = parseInt(a.split('-')[1].split('.')[0]);
+                            const frameNumberB = parseInt(b.split('-')[1].split('.')[0]);
+                            return frameNumberA - frameNumberB;
+                        });
+
+                        // Select one frame from every 25 frames
+                        for (let i = 0; i < files.length; i += 25) {
+                            const file = files[i];
+
+                            // The path of the frame
+                            const filePath = path.join(inputDir, file);
+
+                            // The path to save the frame
+                            const outputPath = path.join(outputDir, file);
+
+                            // Copy the frame to the new directory
+                            fs.copyFile(filePath, outputPath, (err) => {
+                                if (err) {
+                                    console.error('Error copying file:', err);
+                                } else {
+                                    console.log('Copied file:', file);
+                                }
+                            });
+                        }
+                    });
+
+                    console.log("ARCHIVE starts")
+                    // arch.append(req.body.fileName, { name: 'req.body.fileName'});
+                    const output = fs.createWriteStream(__dirname + "/" + req.body.fileName + 'zip.zip');
+                    const archive = archiver('zip');
+                    output.on('close', function () {
+                        console.log(archive.pointer() + ' total bytes');
+                        console.log('archiver has been finalized and the output file descriptor has closed.');
+                    });
 
 
 // This event is fired when the data source is drained no matter what was the data source.
 // It is not part of this library but rather from the NodeJS Stream API.
 // @see: https://nodejs.org/api/stream.html#stream_event_end
-        output.on('end', function () {
-            console.log('Data has been drained');
-        });
+                    output.on('end', function () {
+                        console.log('Data has been drained');
+                    });
 
 // good practice to catch warnings (ie stat failures and other non-blocking errors)
-        archive.on('warning', function (err) {
-            if (err.code === 'ENOENT') {
-                // log warning
-            } else {
-                // throw error
-                throw err;
-            }
-        });
+                    archive.on('warning', function (err) {
+                        if (err.code === 'ENOENT') {
+                            // log warning
+                        } else {
+                            // throw error
+                            throw err;
+                        }
+                    });
 
 // good practice to catch this error explicitly
-        archive.on('error', function (err) {
-            throw err;
-        });
+                    archive.on('error', function (err) {
+                        throw err;
+                    });
 
 // pipe archive data to the file
-        archive.pipe(output);
-        const options = {
-            root: path.join(__dirname)
-        };
-        let filename = `${__dirname + '\\' + req.body.fileName + 'zip.zip'}`;
-        // append files from a sub-directory and naming it `new-subdir` within the archive
-        archive.directory(req.body.fileName, false);
-        archive.finalize().then(r => {
-            let fileNameComplete = req.body.fileName + 'zip.zip';
-            console.log(fileNameComplete)
-            res.json({fileNameComplete: fileNameComplete});
-        });
+                    archive.pipe(output);
+                    const options = {
+                        root: path.join(__dirname)
+                    };
+                    let filename = `${__dirname + '\\' + req.body.fileName + 'zip.zip'}`;
+                    // append files from a sub-directory and naming it `new-subdir` within the archive
+                    archive.directory(outputDir, false);
+                    archive.finalize().then(r => {
+                        let fileNameComplete = req.body.fileName + 'zip.zip';
+                        console.log(fileNameComplete)
+                        res.json({fileNameComplete: fileNameComplete});
+                    });
+                }, "1000");
+
+            })
+            .run();
+    }
+
+    getFrames().then(r => {
+        console.log("READY")
     })
 });
 
