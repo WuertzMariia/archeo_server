@@ -54,75 +54,74 @@ app.post("/extract", cors(), (req, res, next) => {
 
     console.log(req.body.file)
     let arrayOffset = []
-    let fps = 0;
-    const videoMetadata = async () => await renderer.getVideoMetadata(req.body.file).then(res =>  {
-        fps = res.fps;
-        console.log(fps, "fps")
-        res.durationInSeconds
-        for (let i = 1; i <= res.durationInSeconds; i++) {
-            arrayOffset.push((i*1000)-500)
-        }
-        console.log(arrayOffset)
-    });
-
-    let func = async () => {
-        !fs.existsSync(req.body.fileName) && fs.mkdirSync(req.body.fileName);
-
-        await extractFrames({
-            input: req.body.file,
-            output: req.body.fileName + '/screenshot-%i.png',
-            offsets: arrayOffset
-        })
+    for (let i = 1; i <= req.body.duration; i++) {
+        arrayOffset.push((i*1000)-500)
     }
 
-    videoMetadata().then(() => {
-        console.log("VideoMetaData vorhanden")
-        func().then(r => {
-            // arch.append(req.body.fileName, { name: 'req.body.fileName'});
-            const output = fs.createWriteStream(__dirname + "/" + req.body.fileName + 'zip.zip');
-            const archive = archiver('zip');
-            output.on('close', function () {
-                console.log(archive.pointer() + ' total bytes');
-                console.log('archiver has been finalized and the output file descriptor has closed.');
-            });
+    let getFrames = async () => {
+        !fs.existsSync(req.body.fileName) && fs.mkdirSync(req.body.fileName);
+
+        // await extractFrames({
+        //     input: req.body.file,
+        //     output: req.body.fileName + '/screenshot-%i.jpg',
+        //     offsets: null, //every frame
+        //     quality: 50
+        // })
+
+        await ffmpeg(req.body.file)
+            .outputOptions('-q:v 2') // set the quality of the output JPEGs to 2 (highest quality)
+            .output(req.body.fileName + '/screenshot-%d.jpg') // use a pattern for the output file names
+            .on('end', function() {
+                console.log('Finished processing');
+            })
+            .run();
+    }
+
+    getFrames().then(r => {
+        // arch.append(req.body.fileName, { name: 'req.body.fileName'});
+        const output = fs.createWriteStream(__dirname + "/" + req.body.fileName + 'zip.zip');
+        const archive = archiver('zip');
+        output.on('close', function () {
+            console.log(archive.pointer() + ' total bytes');
+            console.log('archiver has been finalized and the output file descriptor has closed.');
+        });
 
 
 // This event is fired when the data source is drained no matter what was the data source.
 // It is not part of this library but rather from the NodeJS Stream API.
 // @see: https://nodejs.org/api/stream.html#stream_event_end
-            output.on('end', function () {
-                console.log('Data has been drained');
-            });
+        output.on('end', function () {
+            console.log('Data has been drained');
+        });
 
 // good practice to catch warnings (ie stat failures and other non-blocking errors)
-            archive.on('warning', function (err) {
-                if (err.code === 'ENOENT') {
-                    // log warning
-                } else {
-                    // throw error
-                    throw err;
-                }
-            });
+        archive.on('warning', function (err) {
+            if (err.code === 'ENOENT') {
+                // log warning
+            } else {
+                // throw error
+                throw err;
+            }
+        });
 
 // good practice to catch this error explicitly
-            archive.on('error', function (err) {
-                throw err;
-            });
+        archive.on('error', function (err) {
+            throw err;
+        });
 
 // pipe archive data to the file
-            archive.pipe(output);
-            const options = {
-                root: path.join(__dirname)
-            };
-            let filename = `${__dirname + '\\' + req.body.fileName + 'zip.zip'}`;
-            // append files from a sub-directory and naming it `new-subdir` within the archive
-            archive.directory(req.body.fileName, false);
-            archive.finalize().then(r => {
-                let fileNameComplete = req.body.fileName + 'zip.zip';
-                console.log(fileNameComplete)
-                res.json({fileNameComplete: fileNameComplete});
-            });
-        })
+        archive.pipe(output);
+        const options = {
+            root: path.join(__dirname)
+        };
+        let filename = `${__dirname + '\\' + req.body.fileName + 'zip.zip'}`;
+        // append files from a sub-directory and naming it `new-subdir` within the archive
+        archive.directory(req.body.fileName, false);
+        archive.finalize().then(r => {
+            let fileNameComplete = req.body.fileName + 'zip.zip';
+            console.log(fileNameComplete)
+            res.json({fileNameComplete: fileNameComplete});
+        });
     })
 });
 
