@@ -1,4 +1,9 @@
 // const bodyParser = require('body-parser');
+// python run_alicevision.py build_files_1 dataset_monstree-master "Meshroom-2018.1.0-win7-64\\aliceVision\\bin\\" 6 runall
+// npm run dev, npm start
+// http://filmicworlds.com/blog/command-line-photogrammetry-with-alicevision/
+// https://threejs.org/examples/?q=obj#webgl_loader_obj/
+// https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_obj.html
 const bodyParser = require('body-parser');
 const express = require("express");
 const cors = require('cors');
@@ -129,51 +134,52 @@ app.post("/extract", cors(), (req, res, next) => {
                         }
                     });
 
-//                     console.log("ARCHIVE starts") TODO ??? remove
-//                     // arch.append(req.body.fileName, { name: 'req.body.fileName'});
-//                     const output = fs.createWriteStream(__dirname + "/" + req.body.fileName + 'zip.zip');
-//                     const archive = archiver('zip');
-//                     output.on('close', function () {
-//                         console.log(archive.pointer() + ' total bytes');
-//                         console.log('archiver has been finalized and the output file descriptor has closed.');
-//                     });
-//
-//
-// // This event is fired when the data source is drained no matter what was the data source.
-// // It is not part of this library but rather from the NodeJS Stream API.
-// // @see: https://nodejs.org/api/stream.html#stream_event_end
-//                     output.on('end', function () {
-//                         console.log('Data has been drained');
-//                     });
-//
-// // good practice to catch warnings (ie stat failures and other non-blocking errors)
-//                     archive.on('warning', function (err) {
-//                         if (err.code === 'ENOENT') {
-//                             // log warning
-//                         } else {
-//                             // throw error
-//                             throw err;
-//                         }
-//                     });
-//
-// // good practice to catch this error explicitly
-//                     archive.on('error', function (err) {
-//                         throw err;
-//                     });
-//
-// // pipe archive data to the file
-//                     archive.pipe(output);
-//                     const options = {
-//                         root: path.join(__dirname)
-//                     };
-//                     let filename = `${__dirname + '\\' + req.body.fileName + 'zip.zip'}`;
-//                     // append files from a sub-directory and naming it `new-subdir` within the archive
-//                     archive.directory(outputDir, false);
-//                     archive.finalize().then(r => {
-//                         let fileNameComplete = req.body.fileName + 'zip.zip';
-//                         console.log(fileNameComplete)
-//                         res.json({fileNameComplete: fileNameComplete});
-//                     });
+//                     console.log("ARCHIVE starts")
+                    console.log("ARCHIVE starts")
+                    // arch.append(req.body.fileName, { name: 'req.body.fileName'});
+                    const output = fs.createWriteStream(__dirname + "/" + req.body.fileName + 'zip.zip');
+                    const archive = archiver('zip');
+                    output.on('close', function () {
+                        console.log(archive.pointer() + ' total bytes');
+                        console.log('archiver has been finalized and the output file descriptor has closed.');
+                    });
+
+
+// This event is fired when the data source is drained no matter what was the data source.
+// It is not part of this library but rather from the NodeJS Stream API.
+// @see: https://nodejs.org/api/stream.html#stream_event_end
+                    output.on('end', function () {
+                        console.log('Data has been drained');
+                    });
+
+// good practice to catch warnings (ie stat failures and other non-blocking errors)
+                    archive.on('warning', function (err) {
+                        if (err.code === 'ENOENT') {
+                            // log warning
+                        } else {
+                            // throw error
+                            throw err;
+                        }
+                    });
+
+// good practice to catch this error explicitly
+                    archive.on('error', function (err) {
+                        throw err;
+                    });
+
+// pipe archive data to the file
+                    archive.pipe(output);
+                    const options = {
+                        root: path.join(__dirname)
+                    };
+                    let filename = `${__dirname + '\\' + req.body.fileName + 'zip.zip'}`;
+                    // append files from a sub-directory and naming it `new-subdir` within the archive
+                    archive.directory(outputDir, false);
+                    archive.finalize().then(r => {
+                        let fileNameComplete = req.body.fileName + 'zip.zip';
+                        console.log(fileNameComplete)
+                        res.json({fileNameComplete: fileNameComplete});
+                    });
 
                     // To obtain the openMVG_main_SfMInit_ImageListing utility, you need to clone the OpenMVG repository from GitHub. Here are the steps:
                     //
@@ -185,51 +191,15 @@ app.post("/extract", cors(), (req, res, next) => {
                     let outputDirectory = path.join(__dirname, '..', outputDir, 'meshroom_result');
 
                     setTimeout(() => {
-                        exec(`"${__dirname}\\Meshroom-2023.3.0\\Meshroom.exe" -i "${inputDirectory}" -s "${outputDirectory}"`, (error, stdout, stderr) => {
-                            if (error) {
-                                console.error(`exec error: ${error}`);
-                                return;
-                            }
-                            console.log("START MESHROOM")
-                        });
+                        // exec(`"${__dirname}\\Meshroom-2023.3.0\\Meshroom.exe" -i "${inputDirectory}" -s "${outputDirectory}"`, (error, stdout, stderr) => {
+                        //     if (error) {
+                        //         console.error(`exec error: ${error}`);
+                        //         return;
+                        //     }
+                        //     console.log("START MESHROOM")
+                        // });
 
                     }, "1000");
-
-                    setTimeout(()=> {
-
-                        // Create a scene
-                        const scene = new THREE.Scene();
-
-                        async function loadObj() {
-                            const url = `${outputDirectory}.obj`; // Replace with the path to your .obj file
-                            const options = {}; // You can pass options here if needed
-
-                            const data = await load(url, OBJLoader, options);
-
-                            // Now data contains the loaded .obj file
-                            // You can analyze it here
-                            console.log(data);
-                        }
-
-                        loadObj().then((data) => {
-                            const loader = new data.OBJLoader();
-                            loader.parse(data, '', function(group) {
-                                // Add the loaded object to the scene
-                                scene.add(group);
-
-                                // Traverse the object and count the number of faces
-                                let faceCount = 0;
-                                group.traverse(function(child) {
-                                    if (child instanceof THREE.Mesh) {
-                                        faceCount += child.geometry.faces.length;
-                                    }
-                                });
-
-                                console.log('Number of faces:', faceCount);
-                            });
-                        }).catch(console.error);
-
-                    }, "6000")
 
                 }, "1000");
 
