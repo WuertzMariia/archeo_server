@@ -11,6 +11,8 @@
   "license": "ISC",
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@loaders.gl/core": "^4.0.4",
+    "@loaders.gl/obj": "^4.0.4",
     "@remotion/renderer": "^4.0.75",
     "archiver": "^6.0.1",
     "body-parser": "^1.20.2",
@@ -19,6 +21,8 @@
     "ffmpeg": "^0.0.4",
     "ffmpeg-extract-frames": "^2.0.2",
     "fluent-ffmpeg": "^2.1.2",
-    "multer": "^1.4.5-lts.1"
+    "multer": "^1.4.5-lts.1",
+    "three": "^0.160.0",
+    "three-obj-loader": "^1.1.3"
   }
 }

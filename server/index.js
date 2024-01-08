@@ -18,6 +18,12 @@ app.set('view engine', 'ejs');
 app.use(cors());
 // Require the upload middleware
 const upload = require('./upload');
+const { exec } = require('child_process');
+const THREE = require('three');
+const { OBJLoader } = require('@loaders.gl/obj');
+const { load } = require('@loaders.gl/core');
+
+let videoMetaData = null;
 
 /**
  * Upload video
@@ -30,11 +36,11 @@ app.post('/upload', upload.single('file'), function (req, res, next) {
     }
 
     // res.json({file: req.file});
-    console.log(req.file)
     let videoMetaDataObj;
     const videoMetadata = async () => await renderer.getVideoMetadata(req.file.path).then(r => {
         videoMetaDataObj = r;
         res.json({videoMetaDataObj: videoMetaDataObj, file: req.file});
+        videoMetaData = videoMetaDataObj;
     });
     videoMetadata();
 
@@ -44,7 +50,7 @@ app.post('/upload', upload.single('file'), function (req, res, next) {
  * Extract frames and save frames in archive
  */
 app.post("/extract", cors(), (req, res, next) => {
-    console.log(req.body)
+    console.log("videoMetaData:", videoMetaData)
     if (!req.body.file) {
         const error = new Error('No file name provided')
         error.httpStatusCode = 400
@@ -52,7 +58,6 @@ app.post("/extract", cors(), (req, res, next) => {
     }
 // extract 3 frames at 1s, 2s, and 3.5s respectively
 
-    console.log(req.body.file)
     let arrayOffset = []
     for (let i = 1; i <= req.body.duration; i++) {
         arrayOffset.push((i * 1000) - 500)
@@ -75,7 +80,6 @@ app.post("/extract", cors(), (req, res, next) => {
                 console.log('Finished processing');
 
                 setTimeout(() => {
-                    console.log("Delayed for 1 second.");
                     console.log("START selecting 1 frame per second")
 
 // The directory of the frames
@@ -103,8 +107,9 @@ app.post("/extract", cors(), (req, res, next) => {
                             return frameNumberA - frameNumberB;
                         });
 
-                        // Select one frame from every 25 frames
-                        for (let i = 0; i < files.length; i += 25) {
+                        // Select one frame from every X frames
+                        console.log("videoMetaData.fps: ",videoMetaData.fps)
+                        for (let i = 0; i < files.length; i += videoMetaData.fps) {
                             const file = files[i];
 
                             // The path of the frame
@@ -124,51 +129,108 @@ app.post("/extract", cors(), (req, res, next) => {
                         }
                     });
 
-                    console.log("ARCHIVE starts")
-                    // arch.append(req.body.fileName, { name: 'req.body.fileName'});
-                    const output = fs.createWriteStream(__dirname + "/" + req.body.fileName + 'zip.zip');
-                    const archive = archiver('zip');
-                    output.on('close', function () {
-                        console.log(archive.pointer() + ' total bytes');
-                        console.log('archiver has been finalized and the output file descriptor has closed.');
-                    });
+//                     console.log("ARCHIVE starts") TODO ??? remove
+//                     // arch.append(req.body.fileName, { name: 'req.body.fileName'});
+//                     const output = fs.createWriteStream(__dirname + "/" + req.body.fileName + 'zip.zip');
+//                     const archive = archiver('zip');
+//                     output.on('close', function () {
+//                         console.log(archive.pointer() + ' total bytes');
+//                         console.log('archiver has been finalized and the output file descriptor has closed.');
+//                     });
+//
+//
+// // This event is fired when the data source is drained no matter what was the data source.
+// // It is not part of this library but rather from the NodeJS Stream API.
+// // @see: https://nodejs.org/api/stream.html#stream_event_end
+//                     output.on('end', function () {
+//                         console.log('Data has been drained');
+//                     });
+//
+// // good practice to catch warnings (ie stat failures and other non-blocking errors)
+//                     archive.on('warning', function (err) {
+//                         if (err.code === 'ENOENT') {
+//                             // log warning
+//                         } else {
+//                             // throw error
+//                             throw err;
+//                         }
+//                     });
+//
+// // good practice to catch this error explicitly
+//                     archive.on('error', function (err) {
+//                         throw err;
+//                     });
+//
+// // pipe archive data to the file
+//                     archive.pipe(output);
+//                     const options = {
+//                         root: path.join(__dirname)
+//                     };
+//                     let filename = `${__dirname + '\\' + req.body.fileName + 'zip.zip'}`;
+//                     // append files from a sub-directory and naming it `new-subdir` within the archive
+//                     archive.directory(outputDir, false);
+//                     archive.finalize().then(r => {
+//                         let fileNameComplete = req.body.fileName + 'zip.zip';
+//                         console.log(fileNameComplete)
+//                         res.json({fileNameComplete: fileNameComplete});
+//                     });
 
+                    // To obtain the openMVG_main_SfMInit_ImageListing utility, you need to clone the OpenMVG repository from GitHub. Here are the steps:
+                    //
+                    //     Install Git on your machine if you haven't done so already. You can download it from the official Git website.
+                    // Open a terminal or command prompt.
+                    //     Navigate to the directory where you want to clone the OpenMVG repository.
+                    //     Run the following command to clone the repository:After building OpenMVG, you should be able to access the openMVG_main_SfMInit_ImageListing utility from the command line. Note that OpenMVG is a complex library and building it may require a good understanding of C++ and 3D geometry 3.
+                    let inputDirectory = path.join(__dirname, '..', outputDir);
+                    let outputDirectory = path.join(__dirname, '..', outputDir, 'meshroom_result');
 
-// This event is fired when the data source is drained no matter what was the data source.
-// It is not part of this library but rather from the NodeJS Stream API.
-// @see: https://nodejs.org/api/stream.html#stream_event_end
-                    output.on('end', function () {
-                        console.log('Data has been drained');
-                    });
+                    setTimeout(() => {
+                        exec(`"${__dirname}\\Meshroom-2023.3.0\\Meshroom.exe" -i "${inputDirectory}" -s "${outputDirectory}"`, (error, stdout, stderr) => {
+                            if (error) {
+                                console.error(`exec error: ${error}`);
+                                return;
+                            }
+                            console.log("START MESHROOM")
+                        });
 
-// good practice to catch warnings (ie stat failures and other non-blocking errors)
-                    archive.on('warning', function (err) {
-                        if (err.code === 'ENOENT') {
-                            // log warning
-                        } else {
-                            // throw error
-                            throw err;
+                    }, "1000");
+
+                    setTimeout(()=> {
+
+                        // Create a scene
+                        const scene = new THREE.Scene();
+
+                        async function loadObj() {
+                            const url = `${outputDirectory}.obj`; // Replace with the path to your .obj file
+                            const options = {}; // You can pass options here if needed
+
+                            const data = await load(url, OBJLoader, options);
+
+                            // Now data contains the loaded .obj file
+                            // You can analyze it here
+                            console.log(data);
                         }
-                    });
 
-// good practice to catch this error explicitly
-                    archive.on('error', function (err) {
-                        throw err;
-                    });
+                        loadObj().then((data) => {
+                            const loader = new data.OBJLoader();
+                            loader.parse(data, '', function(group) {
+                                // Add the loaded object to the scene
+                                scene.add(group);
 
-// pipe archive data to the file
-                    archive.pipe(output);
-                    const options = {
-                        root: path.join(__dirname)
-                    };
-                    let filename = `${__dirname + '\\' + req.body.fileName + 'zip.zip'}`;
-                    // append files from a sub-directory and naming it `new-subdir` within the archive
-                    archive.directory(outputDir, false);
-                    archive.finalize().then(r => {
-                        let fileNameComplete = req.body.fileName + 'zip.zip';
-                        console.log(fileNameComplete)
-                        res.json({fileNameComplete: fileNameComplete});
-                    });
+                                // Traverse the object and count the number of faces
+                                let faceCount = 0;
+                                group.traverse(function(child) {
+                                    if (child instanceof THREE.Mesh) {
+                                        faceCount += child.geometry.faces.length;
+                                    }
+                                });
+
+                                console.log('Number of faces:', faceCount);
+                            });
+                        }).catch(console.error);
+
+                    }, "6000")
+
                 }, "1000");
 
             })
@@ -176,7 +238,7 @@ app.post("/extract", cors(), (req, res, next) => {
     }
 
     getFrames().then(r => {
-        console.log("READY")
+        console.log("getFrames ready")
     })
 });
 
@@ -185,7 +247,6 @@ app.post("/extract", cors(), (req, res, next) => {
  * Download archive with frames
  */
 app.post("/download", cors(), (req, res, next) => {
-    console.log(req.body)
     if (!req.body.archiveName) {
         const error = new Error('No archive name provided')
         error.httpStatusCode = 400
@@ -193,8 +254,6 @@ app.post("/download", cors(), (req, res, next) => {
     }
     const filePath = path.join(__dirname, req.body.archiveName);
     const fileName = `${'attachment; filename=' + req.body.archiveName}`;
-    console.log(fileName)
-    console.log(filePath)
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', fileName);
     res.sendFile(filePath, (err) => {
