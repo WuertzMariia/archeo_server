@@ -7,6 +7,7 @@
 // python run_alicevision.py build_files_1 dataset_monstree-master "Meshroom-2018.1.0-win7-64\\
 // aliceVision\\bin\\" 34 runall
 const bodyParser = require('body-parser');
+const pidusage = require('pidusage');
 const express = require("express");
 const cors = require('cors');
 const archiver = require('archiver');
@@ -134,17 +135,25 @@ app.post("/extract", cors(), (req, res, next) => {
                                 }
                             });
                         }
-                    });
 
-                    let inputDirectory = path.join(__dirname, '..', outputDir);
-                    let outputDirectory = path.join(__dirname, '..', outputDir, 'meshroom_result');
+                        setTimeout(() => {
 
-                    exec(`"${__dirname}\\Meshroom-2023.3.0\\Meshroom.exe" -i "${inputDirectory}" -o "${outputDirectory}" && explorer "${outputDirectory}"`, (error, stdout, stderr) => {
-                        if (error) {
-                            console.error(`exec error: ${error}`);
-                            return;
-                        }
-                        console.log("START MESHROOM")
+// The directory of the frames
+                            const inputDir = req.body.fileName;
+
+// The directory to save the selected frames
+                            const outputDir = './' + inputDir + '_key_frames';
+                            let inputDirectory = path.join(__dirname, '..', outputDir);
+                            let outputDirectory = path.join(__dirname, '..', outputDir, 'meshroom_result');
+
+                            exec(`"${__dirname}\\Meshroom-2023.3.0\\Meshroom.exe" -i "${inputDirectory}" -o "${outputDirectory}" && explorer "${outputDirectory}"`, (error, stdout, stderr) => {
+                                if (error) {
+                                    console.error(`exec error: ${error}`);
+                                    return;
+                                }
+                                console.log("START MESHROOM")
+                            });
+                        }, 5000)
                     });
 
 //                     console.log("ARCHIVE starts")
@@ -195,13 +204,129 @@ app.post("/extract", cors(), (req, res, next) => {
 
                 }, "1000");
 
+
             })
             .run();
     }
 
-    getFrames().then(r => {
-        console.log("getFrames ready")
-    })
+    // getFrames().then(r => {
+    //     console.log("getFrames ready")
+    // })
+
+
+    const pythonScript = 'run_alicevision.py';
+    const dataset = 'build_files_3';
+    const meshroomPath = 'Meshroom-2018.1.0-win7-64\\aliceVision\\bin\\';
+    const parameters = '34 runall';
+
+    const command = `python run_alicevision.py build_files_4 dataset_monstree-master "Meshroom-2018.1.0-win7-64\\aliceVision\\bin" 34 runall`;
+    let resourceData = {
+        cpu: [],
+        memory: [],
+    };
+
+    const startTime = new Date().getTime();
+    const childProcess = exec(command, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`exec error: ${error}`);
+            return;
+        }
+        const endTime = new Date().getTime();
+        console.log('Script output:', stdout);
+        console.error('Script errors:', stderr);
+
+        console.log('START python script');
+
+        // Calculate the elapsed time
+        const elapsedTime = endTime - startTime;
+        console.log(`Process took ${elapsedTime} milliseconds`);
+        // Continue with any further processing or actions here
+    });
+
+// Capture the script's output in real-time
+    childProcess.stdout.on('data', (data) => {
+        console.log(`stdout: ${data}`);
+    });
+
+    childProcess.stderr.on('data', (data) => {
+        console.error(`stderr: ${data}`);
+    });
+
+    // Monitor CPU and memory usage
+    const intervalId = setInterval(() => {
+        pidusage(childProcess.pid, (err, stats) => {
+            if (err) {
+                console.error(`pidusage error: ${err}`);
+                return;
+            }
+
+            // Add CPU and memory usage data to the object
+            resourceData.cpu.push({ timestamp: new Date().toISOString(), value: stats.cpu.toFixed(2) });
+            resourceData.memory.push({ timestamp: new Date().toISOString(), value: stats.memory / (1024 * 1024) });
+        });
+    }, 1000); // Check every second, adjust the interval as needed
+
+
+// Wait for the script to complete
+    childProcess.on('exit', (code) => {
+        console.log(`Child process exited with code ${code}`);
+
+        // Stop monitoring after script completion
+        clearInterval(intervalId);
+
+        // Calculate the average CPU and memory usage
+        const avgCpuUsage = calculateAverage(resourceData.cpu);
+        const avgMemoryUsage = calculateAverage(resourceData.memory);
+// Save data to a JSON file
+        saveDataToFile(resourceData, avgCpuUsage, avgMemoryUsage);
+        // Log the resource data object and averages
+        console.log('Resource Data:', resourceData);
+        console.log('Average CPU Usage:', avgCpuUsage, '%');
+        console.log('Average Memory Usage:', avgMemoryUsage, 'MB');
+
+
+        // Perform any cleanup or further actions here
+    });
+// Helper function to calculate average
+    function calculateAverage(dataArray) {
+        if (dataArray.length === 0) return 0;
+
+        const sum = dataArray.reduce((acc, data) => acc + parseFloat(data.value), 0);
+        return sum / dataArray.length;
+    }
+
+    // Helper function to save data to a JSON file
+    function saveDataToFile(data, avgCpu, avgMemory) {
+        const result = {
+            resourceData: data,
+            averageCpuUsage: avgCpu,
+            averageMemoryUsage: avgMemory,
+        };
+
+        const fileName = 'resource_data.json';
+
+        fs.writeFile(fileName, JSON.stringify(result, null, 2), (err) => {
+            if (err) {
+                console.error(`Error writing to ${fileName}: ${err}`);
+            } else {
+                console.log(`Data saved to ${fileName}`);
+            }
+        });
+    }
+    // exec(`python "${__dirname}\\run_alicevision.py" "${__dirname}\\build_files_4" "${__dirname}\\dataset_monstree-master" "Meshroom-2018.1.0-win7-64\\aliceVision\\bin\\" 34 runall`, (error, stdout, stderr) => {
+    //     if (error) {
+    //         console.error(`exec error: ${error}`);
+    //         return;
+    //     }
+    //     console.log("START MESHROOM");
+    // });
+    // exec(`"${__dirname}\\Meshroom-2023.3.0\\Meshroom.exe" -i "${inputDirectory}" -o "${outputDirectory}" && explorer "${outputDirectory}"`, (error, stdout, stderr) => {
+    //     if (error) {
+    //         console.error(`exec error: ${error}`);
+    //         return;
+    //     }
+    //     console.log("START MESHROOM")
+    // });
 });
 
 
