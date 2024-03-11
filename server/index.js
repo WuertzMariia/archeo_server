@@ -1,10 +1,10 @@
 // const bodyParser = require('body-parser');
-// python run_alicevision.py build_files_1 dataset_monstree-master "Meshroom-2018.1.0-win7-64\\aliceVision\\bin\\" 6 runall
+// python run_alicevision.py build_files_1 my_img_set "Meshroom-2018.1.0-win7-64\\aliceVision\\bin\\" 6 runall
 // npm run dev, npm start
 // http://filmicworlds.com/blog/command-line-photogrammetry-with-alicevision/
 // https://threejs.org/examples/?q=obj#webgl_loader_obj/
 // https://github.com/mrdoob/three.js/blob/master/examples/webgl_loader_obj.html
-// python run_alicevision.py build_files_1 dataset_monstree-master "Meshroom-2018.1.0-win7-64\\
+// python run_alicevision.py build_files_1 my_img_set "Meshroom-2018.1.0-win7-64\\
 // aliceVision\\bin\\" 34 runall
 const bodyParser = require('body-parser');
 const pidusage = require('pidusage');
@@ -45,7 +45,8 @@ app.post('/upload', upload.single('file'), function (req, res, next) {
 
     // res.json({file: req.file});
     let videoMetaDataObj;
-    const videoMetadata = async () => await renderer.getVideoMetadata(req.file.path).then(r => {
+    // C:\Users\marii\OneDrive\Desktop\projects\server\uploads\1710179214623-sandstein_saeule_2023.mp4
+    const videoMetadata = async () => await renderer.getVideoMetadata("C:\\Users\\marii\\OneDrive\\Desktop\\projects\\server\\uploads\\1710179214623-sandstein_saeule_2023.mp4").then(r => {
         videoMetaDataObj = r;
         res.json({videoMetaDataObj: videoMetaDataObj, file: req.file});
         videoMetaData = videoMetaDataObj;
@@ -215,18 +216,20 @@ app.post("/extract", cors(), (req, res, next) => {
 
 
     const pythonScript = 'run_alicevision.py';
-    const dataset = 'build_files_3';
+    const dataset = 'sandstein_saule_0_4_64_output';
     const meshroomPath = 'Meshroom-2018.1.0-win7-64\\aliceVision\\bin\\';
     const parameters = '34 runall';
-
-    const command = `python run_alicevision.py build_files_4 dataset_monstree-master "Meshroom-2018.1.0-win7-64\\aliceVision\\bin" 34 runall`;
+    //rename
+    const command = `python run_alicevision.py sandstein_saule_0_1_256_output sandstein_saule_0_1_256 "Meshroom-2018.1.0-win7-64\\aliceVision\\bin" 256 runall`;
     let resourceData = {
         cpu: [],
         memory: [],
     };
 
+    let elapsTime;
+
     const startTime = new Date().getTime();
-    const childProcess = exec(command, (error, stdout, stderr) => {
+    const childProcess = exec(command, { maxBuffer: 8192 * 1024 * 4 }, (error, stdout, stderr) => {
         if (error) {
             console.error(`exec error: ${error}`);
             return;
@@ -238,8 +241,8 @@ app.post("/extract", cors(), (req, res, next) => {
         console.log('START python script');
 
         // Calculate the elapsed time
-        const elapsedTime = endTime - startTime;
-        console.log(`Process took ${elapsedTime} milliseconds`);
+        elapsTime = endTime - startTime;
+        console.log(`Process took ${elapsTime} milliseconds`);
         // Continue with any further processing or actions here
     });
 
@@ -301,9 +304,11 @@ app.post("/extract", cors(), (req, res, next) => {
             resourceData: data,
             averageCpuUsage: avgCpu,
             averageMemoryUsage: avgMemory,
+            elapsTime: elapsTime,
         };
 
-        const fileName = 'resource_data.json';
+        //rename
+        const fileName = 'sandstein_saule_0_1_256.json';
 
         fs.writeFile(fileName, JSON.stringify(result, null, 2), (err) => {
             if (err) {
@@ -313,7 +318,7 @@ app.post("/extract", cors(), (req, res, next) => {
             }
         });
     }
-    // exec(`python "${__dirname}\\run_alicevision.py" "${__dirname}\\build_files_4" "${__dirname}\\dataset_monstree-master" "Meshroom-2018.1.0-win7-64\\aliceVision\\bin\\" 34 runall`, (error, stdout, stderr) => {
+    // exec(`python "${__dirname}\\run_alicevision.py" "${__dirname}\\build_files_4" "${__dirname}\\my_img_set" "Meshroom-2018.1.0-win7-64\\aliceVision\\bin\\" 34 runall`, (error, stdout, stderr) => {
     //     if (error) {
     //         console.error(`exec error: ${error}`);
     //         return;
